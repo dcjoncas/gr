@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from confidence_rail import confidence_rail, get_chatgpt_client
 from dotenv import load_dotenv
@@ -17,17 +16,14 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI()
 
-# Optional: Serve static assets (if you have a /static folder)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Try to initialize OpenAI client
+# Attempt to initialize OpenAI client
 try:
     chatgpt_client = get_chatgpt_client()
 except Exception as e:
     logger.warning(f"OpenAI client not initialized: {str(e)}")
     chatgpt_client = None
 
-# Request schemas
+# Request body models
 class GenerateInput(BaseModel):
     prompt: str
     clientType: str
@@ -39,7 +35,7 @@ class TestInput(BaseModel):
     clientType: str
     confidenceThreshold: int
 
-# Serve HTML file
+# Serve index.html
 @app.get("/", response_class=HTMLResponse)
 async def serve_html():
     try:
@@ -49,7 +45,7 @@ async def serve_html():
         logger.error(f"Could not read index.html: {e}")
         raise HTTPException(status_code=500, detail="Could not load index.html")
 
-# Generate endpoint
+# POST /generate endpoint
 @app.post("/generate")
 async def generate_response(input: GenerateInput):
     try:
@@ -72,7 +68,7 @@ async def generate_response(input: GenerateInput):
         logger.error(f"Error in /generate: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
 
-# Confidence test endpoint
+# POST /test endpoint
 @app.post("/test")
 async def test_confidence(input: TestInput):
     try:
