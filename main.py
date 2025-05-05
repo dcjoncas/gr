@@ -17,11 +17,10 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI()
 
-# Optional: Serve static files if you have them in a "static" folder
-# Uncomment this if you're serving assets like .css or .js
+# Optional: Serve static assets (if you have a /static folder)
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Attempt to get the OpenAI client
+# Try to initialize OpenAI client
 try:
     chatgpt_client = get_chatgpt_client()
 except Exception as e:
@@ -50,7 +49,7 @@ async def serve_html():
         logger.error(f"Could not read index.html: {e}")
         raise HTTPException(status_code=500, detail="Could not load index.html")
 
-# Endpoint for generating AI response
+# Generate endpoint
 @app.post("/generate")
 async def generate_response(input: GenerateInput):
     try:
@@ -73,7 +72,7 @@ async def generate_response(input: GenerateInput):
         logger.error(f"Error in /generate: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
 
-# Endpoint for confidence checking
+# Confidence test endpoint
 @app.post("/test")
 async def test_confidence(input: TestInput):
     try:
