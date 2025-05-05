@@ -2,18 +2,15 @@ import openai
 import os
 import logging
 
-# Initialize logging
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI globally
 def get_chatgpt_client():
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set")
     openai.api_key = openai_api_key
-    return openai
+    return openai  # ✅ Return module, not an instance
 
-# Main function for confidence checking
 def confidence_rail(
     input_query: str,
     ai_output: str,
