@@ -3,8 +3,6 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Set API key globally — this is the correct way for openai>=1.0.0
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def confidence_rail(
@@ -23,16 +21,16 @@ def confidence_rail(
             query += f"\nCriteria: {criteria}"
 
         if client_type.upper() == "CHATGPT":
-            result = openai.chat.completions.create(
+            result = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": query}]
             )
-            confidence = result.choices[0].message.content.strip()
+            confidence = result.choices[0].message["content"].strip()
             confidence_score = int(''.join(filter(str.isdigit, confidence)))
             return [confidence_score >= confidence_threshold, confidence_score]
 
         else:
-            return [True, 0]  # Default pass for unknown types
+            return [True, 0]
 
     except Exception as e:
         logger.error(f"confidence_rail error: {e}")

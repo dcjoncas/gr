@@ -8,7 +8,7 @@ import os
 
 from confidence_rail import confidence_rail
 
-# Setup
+# Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -16,7 +16,6 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
 
-# Models
 class GenerateInput(BaseModel):
     prompt: str
     clientType: str
@@ -28,7 +27,6 @@ class TestInput(BaseModel):
     clientType: str
     confidenceThreshold: int
 
-# Serve HTML
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
     try:
@@ -37,23 +35,21 @@ async def serve_index():
     except:
         raise HTTPException(status_code=500, detail="Could not load HTML")
 
-# Generate response
 @app.post("/generate")
 async def generate(input: GenerateInput):
     try:
         if input.clientType.upper() == "CHATGPT":
-            result = openai.chat.completions.create(
+            result = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": input.prompt}]
             )
-            return {"response": result.choices[0].message.content}
+            return {"response": result.choices[0].message["content"]}
         else:
             raise HTTPException(status_code=400, detail="Invalid clientType")
     except Exception as e:
         logger.error(f"Error in /generate: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Confidence test
 @app.post("/test")
 async def test(input: TestInput):
     try:
