@@ -2,8 +2,8 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confidence Rail Test</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -11,128 +11,73 @@
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
         <h1 class="text-2xl font-bold mb-4 text-center">Confidence Rail Test</h1>
-        <p class="text-sm text-gray-600 mb-4">
-            Evaluate AI response quality using W5 Consulting's patented Confidence Rail. Enter a prompt, generate a
-            response, then test its accuracy.
-        </p>
-
         <form id="testForm" class="space-y-4">
             <div>
-                <label for="prompt" class="block text-sm font-medium text-gray-700">User Prompt</label>
-                <input type="text" id="prompt" name="prompt" required
-                    class="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="What is the capital of France?">
+                <label for="prompt">Prompt</label>
+                <input type="text" id="prompt" class="w-full border rounded p-2">
             </div>
-
             <div>
-                <label for="response" class="block text-sm font-medium text-gray-700">AI Response</label>
-                <textarea id="response" name="response" readonly
-                    class="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="AI response will appear here"></textarea>
+                <label for="response">Response</label>
+                <textarea id="response" class="w-full border rounded p-2" readonly></textarea>
             </div>
-
             <div>
-                <label for="criteria" class="block text-sm font-medium text-gray-700">Criteria (Optional)</label>
-                <textarea id="criteria" name="criteria" class="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Response must be accurate and concise."></textarea>
+                <label for="criteria">Criteria (optional)</label>
+                <textarea id="criteria" class="w-full border rounded p-2"></textarea>
             </div>
-
             <div>
-                <label for="clientType" class="block text-sm font-medium text-gray-700">AI Client</label>
-                <select id="clientType" name="clientType" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                <label for="clientType">Client Type</label>
+                <select id="clientType" class="w-full border rounded p-2">
                     <option value="CHATGPT">ChatGPT</option>
-                    <option value="GROK" disabled>Grok (API Key Required)</option>
-                    <option value="OLLAMA" disabled>Ollama (Setup Required)</option>
                 </select>
             </div>
-
             <div>
-                <label for="confidenceThreshold" class="block text-sm font-medium text-gray-700">Confidence
-                    Threshold</label>
-                <input type="number" id="confidenceThreshold" name="confidenceThreshold" value="90" min="0" max="100"
-                    required class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="90">
+                <label for="confidenceThreshold">Confidence Threshold</label>
+                <input type="number" id="confidenceThreshold" class="w-full border rounded p-2" value="90" min="0"
+                    max="100">
             </div>
-
             <div class="flex space-x-2">
-                <button type="button" id="generateButton"
-                    class="flex-1 bg-green-500 text-white p-2 rounded-md hover:bg-green-600">
-                    Generate Response
-                </button>
-                <button type="submit" id="testButton" disabled
-                    class="flex-1 bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600">
-                    Test Confidence
-                </button>
+                <button type="button" id="generateButton" class="bg-green-500 text-white px-4 py-2 rounded">Generate
+                    Response</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Test Confidence</button>
             </div>
         </form>
-
         <div id="result" class="mt-4 hidden">
-            <p class="text-sm font-medium text-gray-700">Result: <span id="passFail" class="font-bold"></span></p>
-            <p class="text-sm font-medium text-gray-700">Confidence Score: <span id="confidenceScore"></span></p>
+            <p>Result: <span id="passFail"></span></p>
+            <p>Confidence Score: <span id="confidenceScore"></span></p>
         </div>
     </div>
-
     <script>
-        const generateButton = document.getElementById("generateButton");
-        const testButton = document.getElementById("testButton");
-        const responseField = document.getElementById("response");
-        const resultDiv = document.getElementById("result");
-
-        generateButton.onclick = async () => {
+        document.getElementById("generateButton").addEventListener("click", async () => {
             const prompt = document.getElementById("prompt").value;
             const clientType = document.getElementById("clientType").value;
+            const response = await fetch("/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt, clientType })
+            });
+            const data = await response.json();
+            document.getElementById("response").value = data.response;
+        });
 
-            if (!prompt) return alert("Please enter a user prompt.");
-
-            try {
-                const res = await fetch("/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt, clientType })
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || "Failed to generate.");
-
-                responseField.value = data.response;
-                testButton.disabled = false;
-                resultDiv.classList.add("hidden");
-            } catch (err) {
-                console.error(err);
-                alert("Failed to generate response.");
-            }
-        };
-
-        document.getElementById("testForm").onsubmit = async (e) => {
+        document.getElementById("testForm").addEventListener("submit", async (e) => {
             e.preventDefault();
-            const form = new FormData(e.target);
-            const data = {
-                prompt: form.get("prompt"),
-                response: form.get("response"),
-                criteria: form.get("criteria"),
-                clientType: form.get("clientType"),
-                confidenceThreshold: parseInt(form.get("confidenceThreshold"))
+            const payload = {
+                prompt: document.getElementById("prompt").value,
+                response: document.getElementById("response").value,
+                criteria: document.getElementById("criteria").value,
+                clientType: document.getElementById("clientType").value,
+                confidenceThreshold: parseInt(document.getElementById("confidenceThreshold").value)
             };
-
-            if (!data.response) return alert("Please generate a response first.");
-
-            try {
-                const res = await fetch("/test", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await res.json();
-                if (!res.ok) throw new Error(result.detail || "Test failed.");
-
-                document.getElementById("passFail").textContent = result.passed ? "Pass" : "Fail";
-                document.getElementById("confidenceScore").textContent = result.score;
-                resultDiv.classList.remove("hidden");
-            } catch (err) {
-                console.error(err);
-                alert("Failed to test confidence.");
-            }
-        };
+            const response = await fetch("/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            document.getElementById("passFail").innerText = data.passed ? "Pass" : "Fail";
+            document.getElementById("confidenceScore").innerText = data.score;
+            document.getElementById("result").classList.remove("hidden");
+        });
     </script>
 </body>
 
