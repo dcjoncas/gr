@@ -1,43 +1,76 @@
-from openai import OpenAI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from dotenv import load_dotenv
+from confidence_rail import confidence_rail, client as chatgpt_client
 import os
+import logging
 
+# Load environment variables
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[{"role": "user", "content": "Hi"}]
-)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("main")
 
+# Create FastAPI app
+app = FastAPI()
 
-def confidence_rail(
-    input_query: str,
-    ai_output: str,
-    client_type: str = "CHATGPT",
-    confidence_threshold: int = 90,
-    criteria: str = ""
-):
+# Serve static HTML
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+class GenerateInput(BaseModel):
+    prompt: str
+    clientType: str
+
+class TestInput(BaseModel):
+    prompt: str
+    response: str
+    criteria: str
+    clientType: str
+    confidenceThreshold: int
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_html():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.post("/generate")
+async def generate_response(input: GenerateInput):
     try:
-        query = (
-            f"Respond with only a number from 0 to 100. No extra text.\n"
-            f"Prompt: {input_query}\nResponse: {ai_output}"
+        logger.info(f"Generating response for client: {input.clientType}")
+        if input.clientType.upper() != "CHATGPT":
+            raise HTTPException(status_code=400, detail="Invalid client type")
+
+        result = chatgpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": input.prompt}]
         )
-        if criteria:
-            query += f"\nCriteria: {criteria}"
-
-        if client_type.upper() == "CHATGPT":
-            result = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": query}]
-            )
-            confidence = result.choices[0].message["content"].strip()
-            confidence_score = int(''.join(filter(str.isdigit, confidence)))
-            return [confidence_score >= confidence_threshold, confidence_score]
-
-        else:
-            return [True, 0]
+        response = result.choices[0].message.content
+        return {"response": response}
 
     except Exception as e:
-        logger.error(f"confidence_rail error: {e}")
-        raise
+        logger.error(f"Error in /generate: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
+
+@app.post("/test")
+async def test_confidence(input: TestInput):
+    try:
+        logger.info(f"Testing confidence for client: {input.clientType}")
+        if input.clientType.upper() != "CHATGPT":
+            raise HTTPException(status_code=400, detail="Invalid client type")
+
+        result, score = confidence_rail(
+            input_query=input.prompt,
+            ai_output=input.response,
+            ai_client=chatgpt_client,
+            client_type=input.clientType,
+            confidence_threshold=input.confidenceThreshold,
+            criteria=input.criteria
+        )
+        return {"passed": result, "score": score}
+
+    except Exception as e:
+        logger.error(f"Error in /test: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to test confidence: {str(e)}")
