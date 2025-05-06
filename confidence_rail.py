@@ -4,54 +4,36 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_chatgpt_client():
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-    openai.api_key = openai_api_key
-    return openai  # ✅ Return module, not an instance
+# Set API key globally — this is the correct way for openai>=1.0.0
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def confidence_rail(
     input_query: str,
     ai_output: str,
-    ai_client,
     client_type: str = "CHATGPT",
     confidence_threshold: int = 90,
     criteria: str = ""
 ):
     try:
-        client_type = client_type.upper()
-        responseSuccess = True
-        numResponse = ""
-
-        queryAI = (
-            f'Respond to the following question with only an integer number from 0 to 100. '
-            f'ADD NO ADDITIONAL TEXT. USE NO LETTERS. How confident are you that the following '
-            f'AI output matches the corresponding user prompt?\n'
-            f'User Prompt: "{input_query}"\nAI Response: "{ai_output}"'
+        query = (
+            f"Respond with only a number from 0 to 100. No extra text.\n"
+            f"Prompt: {input_query}\nResponse: {ai_output}"
         )
-
         if criteria:
-            queryAI += f"\nUse this criteria to make your assessment: {criteria}"
+            query += f"\nCriteria: {criteria}"
 
-        if client_type == "CHATGPT":
-            while responseSuccess:
-                response = ai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": queryAI}],
-                )
-                numResponse = str(response.choices[0].message.content)
-                try:
-                    numResponse = int(''.join(c for c in numResponse if c.isdigit()))
-                    responseSuccess = False
-                except Exception:
-                    continue
+        if client_type.upper() == "CHATGPT":
+            result = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": query}]
+            )
+            confidence = result.choices[0].message.content.strip()
+            confidence_score = int(''.join(filter(str.isdigit, confidence)))
+            return [confidence_score >= confidence_threshold, confidence_score]
+
         else:
-            logger.warning("AI client type invalid or not supported.")
-            return [True, 0]
+            return [True, 0]  # Default pass for unknown types
 
-        return [True, numResponse] if numResponse >= confidence_threshold else [False, numResponse]
-
-    except Exception as err:
-        logger.error(f"Error in ConfidenceRail: {str(err)}")
-        raise Exception("Error in ConfidenceRail: " + str(err))
+    except Exception as e:
+        logger.error(f"confidence_rail error: {e}")
+        raise
